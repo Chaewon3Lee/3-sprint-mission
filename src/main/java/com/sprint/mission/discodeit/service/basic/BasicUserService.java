@@ -2,9 +2,11 @@ package com.sprint.mission.discodeit.service.basic;
 
 import com.sprint.mission.discodeit.dto.request.BinaryContentCreateRequest;
 import com.sprint.mission.discodeit.dto.request.UserCreateRequest;
+import com.sprint.mission.discodeit.dto.request.UserRoleUpdateRequest;
 import com.sprint.mission.discodeit.dto.request.UserUpdateRequest;
 import com.sprint.mission.discodeit.dto.response.UserResponse;
 import com.sprint.mission.discodeit.entity.BinaryContent;
+import com.sprint.mission.discodeit.entity.Role;
 import com.sprint.mission.discodeit.entity.User;
 import com.sprint.mission.discodeit.entity.UserStatus;
 import com.sprint.mission.discodeit.exception.user.DuplicateEmailException;
@@ -24,6 +26,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,7 +64,8 @@ public class BasicUserService implements UserService {
             })
             .orElse(null);
 
-        User user = new User(request.username(), request.email(), request.password(), profile);
+        User user = new User(request.username(), request.email(), request.password(), profile,
+            Role.USER);
         userRepository.save(user);
         userStatusRepository.save(new UserStatus(user, Instant.now()));
 
@@ -141,6 +145,16 @@ public class BasicUserService implements UserService {
         user.update(newUsername, newEmail, request.newPassword(), updatedProfile);
 
         log.debug("[BasicUserService] User updated. [id={}]", userId);
+        return userMapper.toResponse(user);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public UserResponse updateUserRole(UserRoleUpdateRequest request) {
+        User user = userRepository.findById(request.userId())
+            .orElseThrow(() -> new UserNotFoundException(request.userId().toString()));
+
+        user.updateRole(request.newRole());
         return userMapper.toResponse(user);
     }
 
