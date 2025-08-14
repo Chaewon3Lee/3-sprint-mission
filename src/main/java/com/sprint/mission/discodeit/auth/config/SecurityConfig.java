@@ -4,8 +4,10 @@ import com.sprint.mission.discodeit.auth.handler.CustomAccessDeniedHandler;
 import com.sprint.mission.discodeit.auth.handler.CustomSessionExpiredStrategy;
 import com.sprint.mission.discodeit.auth.handler.LoginFailureHandler;
 import com.sprint.mission.discodeit.auth.handler.LoginSuccessHandler;
+import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,10 +22,13 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
+import org.springframework.security.web.authentication.rememberme.TokenBasedRememberMeServices;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -35,12 +40,17 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    @Value("${remember-me.key}")
+    private String rememberMeKey;
+
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
         SessionRegistry sessionRegistry,
         LoginSuccessHandler loginSuccessHandler,
         LoginFailureHandler loginFailureHandler,
-        CustomAccessDeniedHandler customAccessDeniedHandler) throws Exception {
+        CustomAccessDeniedHandler customAccessDeniedHandler,
+        TokenBasedRememberMeServices rememberMeServices) throws Exception {
         log.debug("[SecurityConfig] Initializing SecurityFilterChain.");
 
         http
@@ -72,6 +82,9 @@ public class SecurityConfig {
                 .sessionRegistry(sessionRegistry)
                 .expiredSessionStrategy(new CustomSessionExpiredStrategy())
             )
+            .rememberMe(remember -> remember
+                .rememberMeServices(rememberMeServices)
+            )
             .exceptionHandling(ex -> ex
                 .accessDeniedHandler(customAccessDeniedHandler)
             )
@@ -89,6 +102,34 @@ public class SecurityConfig {
             });
 
         return http.build();
+    }
+
+    @Bean
+    public JdbcTokenRepositoryImpl tokenRepository(DataSource dataSource) {
+
+        System.out.println("[SecurityConfig] JdbcTokenRepository 생성");
+
+        JdbcTokenRepositoryImpl tokenRepository = new JdbcTokenRepositoryImpl();
+        tokenRepository.setDataSource(dataSource);
+
+        System.out.println("[SecurityConfig] JdbcTokenRepository 설정 완료");
+        return tokenRepository;
+    }
+
+    @Bean
+    public TokenBasedRememberMeServices rememberMeServices(UserDetailsService userDetailsService) {
+
+        TokenBasedRememberMeServices rememberMeServices = new TokenBasedRememberMeServices(
+            rememberMeKey,
+            userDetailsService);
+
+        rememberMeServices.setTokenValiditySeconds(60);
+        rememberMeServices.setCookieName("remember-me");
+        rememberMeServices.setParameter("remember-me");
+
+        log.debug("[SecurityConfig] Remember-Me 설정 완료");
+
+        return rememberMeServices;
     }
 
     @Bean
