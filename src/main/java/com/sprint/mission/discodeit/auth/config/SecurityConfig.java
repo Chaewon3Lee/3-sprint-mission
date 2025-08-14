@@ -1,8 +1,9 @@
 package com.sprint.mission.discodeit.auth.config;
 
+import com.sprint.mission.discodeit.auth.handler.CustomAccessDeniedHandler;
+import com.sprint.mission.discodeit.auth.handler.CustomSessionExpiredStrategy;
 import com.sprint.mission.discodeit.auth.handler.LoginFailureHandler;
 import com.sprint.mission.discodeit.auth.handler.LoginSuccessHandler;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -15,24 +16,31 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.session.SessionInformation;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 @Slf4j
 @EnableMethodSecurity
+@EnableWebSecurity
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final LoginSuccessHandler loginSuccessHandler;
-    private final LoginFailureHandler loginFailureHandler;
-
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+        SessionRegistry sessionRegistry,
+        LoginSuccessHandler loginSuccessHandler,
+        LoginFailureHandler loginFailureHandler,
+        CustomAccessDeniedHandler customAccessDeniedHandler) throws Exception {
         log.debug("[SecurityConfig] Initializing SecurityFilterChain.");
 
         http
@@ -41,38 +49,31 @@ public class SecurityConfig {
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/").permitAll()
-                .requestMatchers("/error").permitAll()
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers("/api/auth/csrf-token").permitAll()
+                .requestMatchers("/", "/index.html", "/favicon.ico",
+                    "/assets/**", "/css/**", "/js/**", "/images/**",
+                    "/swagger-ui/**", "/v3/api-docs/**",
+                    "/actuator/**", "/error")
+                .permitAll()
+
                 .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
-                .requestMatchers("/api/auth/login").permitAll()
-                .requestMatchers("/api/auth/logout").permitAll()
-                .requestMatchers(
-                    "/favicon.ico", "/assets/**", "/css/**", "/js/**", "/images/**"
-                ).permitAll()
-                .anyRequest().authenticated()
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/auth/csrf-token").permitAll()
+
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                .requestMatchers("/api/**").authenticated()
+
+                .anyRequest().permitAll()
+            )
+            .sessionManagement(session -> session
+                .sessionFixation().migrateSession()
+                .maximumSessions(1)
+                .maxSessionsPreventsLogin(false)
+                .sessionRegistry(sessionRegistry)
+                .expiredSessionStrategy(new CustomSessionExpiredStrategy())
             )
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((request, response, e) -> {
-                    log.debug("[SecurityConfig] Unauthorized access attempt. [uri={}]",
-                        request.getRequestURI());
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter()
-                        .write(
-                            "{\"code\":\"UNAUTHORIZED\",\"message\":\"Authentication is required.\"}");
-                })
-                .accessDeniedHandler((request, response, e) -> {
-                    log.debug("[SecurityConfig] Forbidden access attempt. [uri={}]",
-                        request.getRequestURI());
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter()
-                        .write(
-                            "{\"code\":\"FORBIDDEN\",\"message\":\"You do not have permission to access this resource.\"}");
-                })
+                .accessDeniedHandler(customAccessDeniedHandler)
             )
             .formLogin(login -> {
                 log.debug("[SecurityConfig] Configuring form login. [loginUrl=/api/auth/login]");
@@ -115,5 +116,44 @@ public class SecurityConfig {
         DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
         handler.setRoleHierarchy(roleHierarchy);
         return handler;
+    }
+
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+
+    @Bean
+    public SessionRegistry sessionRegistry() {
+
+        SessionRegistryImpl sessionRegistry = new SessionRegistryImpl() {
+
+            @Override
+            public void registerNewSession(String sessionId, Object principal) {
+                System.out.println(
+                    "[SessionRegistry] 새 세션 등록 - 사용자: " + principal + ", 세션ID: " + sessionId);
+                super.registerNewSession(sessionId, principal);
+                System.out.println(
+                    "[SessionRegistry] 현재 활성 세션 수: " + getAllSessions(principal, false).size());
+            }
+
+            @Override
+            public void removeSessionInformation(String sessionId) {
+                System.out.println("[SessionRegistry] 세션 제거 - 세션ID: " + sessionId);
+                super.removeSessionInformation(sessionId);
+            }
+
+            @Override
+            public SessionInformation getSessionInformation(String sessionId) {
+                SessionInformation info = super.getSessionInformation(sessionId);
+                if (info != null) {
+                    System.out.println("[SessionRegistry] 세션 정보 조회 - 세션ID: " + sessionId + ", 만료됨: "
+                        + info.isExpired());
+                }
+                return info;
+            }
+        };
+
+        return sessionRegistry;
     }
 }
