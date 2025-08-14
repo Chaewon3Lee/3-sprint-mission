@@ -3,7 +3,7 @@ package com.sprint.mission.discodeit.controller;
 import com.sprint.mission.discodeit.auth.service.DiscodeitUserDetails;
 import com.sprint.mission.discodeit.dto.request.UserRoleUpdateRequest;
 import com.sprint.mission.discodeit.dto.response.UserResponse;
-import com.sprint.mission.discodeit.service.UserService;
+import com.sprint.mission.discodeit.service.AuthService;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class AuthController {
 
-    private final UserService userService;
+    private final AuthService authService;
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser(
@@ -39,7 +39,7 @@ public class AuthController {
 
     @PutMapping("/role")
     public ResponseEntity<UserResponse> updateUserRole(@RequestBody UserRoleUpdateRequest request) {
-        UserResponse updated = userService.updateUserRole(request);
+        UserResponse updated = authService.updateUserRole(request);
         return ResponseEntity.ok(updated);
     }
 }
