@@ -1,9 +1,9 @@
 package com.sprint.mission.discodeit.auth.service;
 
 import com.sprint.mission.discodeit.dto.response.UserResponse;
-import com.sprint.mission.discodeit.entity.User;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -16,12 +16,10 @@ public class DiscodeitUserDetails implements UserDetails {
 
     private final UserResponse userResponse;
     private final String password;
-    private final User user;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        System.out.println("[CustomUserDetails] getAuthorities 실행됨");
-        return List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        return List.of(new SimpleGrantedAuthority("ROLE_" + userResponse.role().name()));
     }
 
     @Override
@@ -52,5 +50,21 @@ public class DiscodeitUserDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DiscodeitUserDetails that)) {
+            return false;
+        }
+        return Objects.equals(userResponse.username(), that.userResponse.username());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(userResponse.username());
     }
 }
