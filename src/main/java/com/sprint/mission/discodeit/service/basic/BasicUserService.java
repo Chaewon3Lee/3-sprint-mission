@@ -61,9 +61,9 @@ public class BasicUserService implements UserService {
             })
             .orElse(null);
 
-        String encoded = passwordEncoder.encode(request.password());
+        String encodedPassword = passwordEncoder.encode(request.password());
 
-        User user = new User(request.username(), request.email(), encoded, profile,
+        User user = new User(request.username(), request.email(), encodedPassword, profile,
             Role.USER);
         userRepository.save(user);
 
@@ -141,7 +141,11 @@ public class BasicUserService implements UserService {
             updatedProfile = binaryContent;
         }
 
-        user.update(newUsername, newEmail, request.newPassword(), updatedProfile);
+        String encodedPassword = (request.newPassword() != null)
+            ? passwordEncoder.encode(request.newPassword())
+            : null;
+
+        user.update(newUsername, newEmail, encodedPassword, updatedProfile);
 
         log.debug("[BasicUserService] User updated. [id={}]", userId);
         return userMapper.toResponse(user);
