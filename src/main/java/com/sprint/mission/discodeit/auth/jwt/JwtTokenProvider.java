@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtTokenProvider {
 
-    public static final String REFRESH_TOKEN_COOKIE_NAME = "REFRESH-TOKEN";
+    public static final String REFRESH_TOKEN_COOKIE_NAME = "REFRESH_TOKEN";
 
     private final int accessTokenExpirationMs;
     private final int refreshTokenExpirationMs;
@@ -61,7 +61,7 @@ public class JwtTokenProvider {
         return generateToken(userDetails, accessTokenExpirationMs, accessTokenSigner, "access");
     }
 
-    public String generateRefresahToken(DiscodeitUserDetails userDetails) throws JOSEException {
+    public String generateRefreshToken(DiscodeitUserDetails userDetails) throws JOSEException {
         log.debug("[TokenProvider] generateRefreshToken 호출됨: {}의 Refresh Token 생성",
             userDetails.getUsername());
         return generateToken(userDetails, refreshTokenExpirationMs, refreshTokenSigner, "refresh");

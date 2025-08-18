@@ -1,9 +1,8 @@
 package com.sprint.mission.discodeit.auth.config;
 
 import com.sprint.mission.discodeit.auth.handler.CustomAccessDeniedHandler;
-import com.sprint.mission.discodeit.auth.handler.CustomSessionExpiredStrategy;
 import com.sprint.mission.discodeit.auth.handler.LoginFailureHandler;
-import com.sprint.mission.discodeit.auth.handler.LoginSuccessHandler;
+import com.sprint.mission.discodeit.auth.jwt.JwtLoginSuccessHandler;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +18,7 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -46,11 +46,10 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-        SessionRegistry sessionRegistry,
-        LoginSuccessHandler loginSuccessHandler,
+        JwtLoginSuccessHandler jwtLoginSuccessHandler,
         LoginFailureHandler loginFailureHandler,
-        CustomAccessDeniedHandler customAccessDeniedHandler,
-        TokenBasedRememberMeServices rememberMeServices) throws Exception {
+        CustomAccessDeniedHandler customAccessDeniedHandler
+    ) throws Exception {
         log.debug("[SecurityConfig] Initializing SecurityFilterChain.");
 
         http
@@ -76,14 +75,7 @@ public class SecurityConfig {
                 .anyRequest().permitAll()
             )
             .sessionManagement(session -> session
-                .sessionFixation().migrateSession()
-                .maximumSessions(1)
-                .maxSessionsPreventsLogin(false)
-                .sessionRegistry(sessionRegistry)
-                .expiredSessionStrategy(new CustomSessionExpiredStrategy())
-            )
-            .rememberMe(remember -> remember
-                .rememberMeServices(rememberMeServices)
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .exceptionHandling(ex -> ex
                 .accessDeniedHandler(customAccessDeniedHandler)
@@ -91,7 +83,7 @@ public class SecurityConfig {
             .formLogin(login -> {
                 log.debug("[SecurityConfig] Configuring form login. [loginUrl=/api/auth/login]");
                 login.loginProcessingUrl("/api/auth/login")
-                    .successHandler(loginSuccessHandler)
+                    .successHandler(jwtLoginSuccessHandler)
                     .failureHandler(loginFailureHandler);
             })
             .logout(logout -> {
