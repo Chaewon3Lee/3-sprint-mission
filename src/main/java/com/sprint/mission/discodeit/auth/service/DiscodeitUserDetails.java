@@ -4,6 +4,7 @@ import com.sprint.mission.discodeit.dto.response.UserResponse;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,6 +21,10 @@ public class DiscodeitUserDetails implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + userResponse.role().name()));
+    }
+
+    public UUID getUserId() {
+        return userResponse.id();
     }
 
     @Override
