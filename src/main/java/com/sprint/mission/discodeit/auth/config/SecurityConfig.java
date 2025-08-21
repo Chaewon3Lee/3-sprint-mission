@@ -74,6 +74,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/auth/csrf-token").permitAll()
+                .requestMatchers("/api/auth/refresh").permitAll()
 
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 

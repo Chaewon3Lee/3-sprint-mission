@@ -1,6 +1,7 @@
 package com.sprint.mission.discodeit.auth.service;
 
 import com.sprint.mission.discodeit.dto.response.UserResponse;
+import com.sprint.mission.discodeit.entity.User;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -17,6 +18,7 @@ public class DiscodeitUserDetails implements UserDetails {
 
     private final UserResponse userResponse;
     private final String password;
+    private final User user;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
