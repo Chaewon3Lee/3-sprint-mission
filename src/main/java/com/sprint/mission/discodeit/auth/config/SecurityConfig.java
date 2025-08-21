@@ -2,11 +2,14 @@ package com.sprint.mission.discodeit.auth.config;
 
 import com.sprint.mission.discodeit.auth.handler.CustomAccessDeniedHandler;
 import com.sprint.mission.discodeit.auth.handler.LoginFailureHandler;
+import com.sprint.mission.discodeit.auth.jwt.JwtAuthenticationFilter;
 import com.sprint.mission.discodeit.auth.jwt.JwtLoginSuccessHandler;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.function.Supplier;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -22,14 +25,14 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionInformation;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
-import org.springframework.security.web.authentication.rememberme.TokenBasedRememberMeServices;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 
@@ -40,22 +43,26 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    @Value("${remember-me.key}")
-    private String rememberMeKey;
-
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
         JwtLoginSuccessHandler jwtLoginSuccessHandler,
         LoginFailureHandler loginFailureHandler,
-        CustomAccessDeniedHandler customAccessDeniedHandler
+        CustomAccessDeniedHandler customAccessDeniedHandler,
+        JwtAuthenticationFilter jwtAuthenticationFilter
     ) throws Exception {
         log.debug("[SecurityConfig] Initializing SecurityFilterChain.");
 
         http
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler() {
+                    @Override
+                    public void handle(HttpServletRequest request, HttpServletResponse response,
+                        Supplier<CsrfToken> csrfToken) {
+                        super.handle(request, response, csrfToken);
+                        csrfToken.get();
+                    }
+                })
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/index.html", "/favicon.ico",
@@ -91,7 +98,9 @@ public class SecurityConfig {
                 logout.logoutUrl("/api/auth/logout")
                     .logoutSuccessHandler(
                         new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT));
-            });
+            })
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        ;
 
         return http.build();
     }
@@ -106,22 +115,6 @@ public class SecurityConfig {
 
         System.out.println("[SecurityConfig] JdbcTokenRepository 설정 완료");
         return tokenRepository;
-    }
-
-    @Bean
-    public TokenBasedRememberMeServices rememberMeServices(UserDetailsService userDetailsService) {
-
-        TokenBasedRememberMeServices rememberMeServices = new TokenBasedRememberMeServices(
-            rememberMeKey,
-            userDetailsService);
-
-        rememberMeServices.setTokenValiditySeconds(60);
-        rememberMeServices.setCookieName("remember-me");
-        rememberMeServices.setParameter("remember-me");
-
-        log.debug("[SecurityConfig] Remember-Me 설정 완료");
-
-        return rememberMeServices;
     }
 
     @Bean
